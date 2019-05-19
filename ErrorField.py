@@ -225,7 +225,7 @@ class Mistakes(Plot):
     def func(self):
         self.straight_line()
         DirectCoefficients = self.straight_line()
-        #self.direct(DirectCoefficients)
+        # self.direct(DirectCoefficients)
         oy = np.linspace(0, 300, 300)
         self.plot_Hyperbola(oy)
         width = self.width_difference()
@@ -262,7 +262,15 @@ class Kalman(Mistakes):
                       label=['отфильтрованная траектория', 'зашумленная траектория'],
                       xlabel='km',
                       ylabel='km')
-        self.standard_deviation(self.Rx, ErrorRadius)
+        dev, devkalman = self.standard_deviation(self.Rx, ErrorRadius)
+        self.schedule(dev[0], dev[1], devkalman[0], devkalman[1],
+                      circle=False,
+                      title='СКО для выборки из 200 траекторий',
+                      label=['СКО до обработки', 'СКО после обработки'],
+                      xlabel='Порядковый номер измерения координаты',
+                      ylabel='km',
+                      xlim=len(dev[1]),
+                      ylim=max(dev[1]))
 
     def noize(self, ErrorRadius):
         traektoria = [[], []]
@@ -345,11 +353,4 @@ class Kalman(Mistakes):
         for i in range(len(stdx)):
             stdxy.append(np.sqrt(stdx[i] ** 2 + stdy[i] ** 2))
             stdxykalmsum.append(np.sqrt(stdxkalmsum[i] ** 2 + stdykalmsum[i] ** 2))
-        self.schedule(range(len(stdxy)), stdxy, range(len(stdxykalmsum)), stdxykalmsum,
-                      circle=False,
-                      title='СКО для выборки из 200 траекторий',
-                      label=['СКО до обработки', 'СКО после обработки'],
-                      xlabel='Порядковый номер измерения координаты',
-                      ylabel='km',
-                      xlim=len(stdxy),
-                      ylim=max(stdxy))
+        return [range(len(stdxy)), stdxy], [range(len(stdxykalmsum)), stdxykalmsum]

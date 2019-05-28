@@ -9,21 +9,20 @@ class Plot:
         ax = plt.gca()
         xlist = []
         ylist = []
-        xlim = 310
-        ylim = 310
+        xmin = kwargs.get('xmin', 0)
+        ymin = kwargs.get('ymin', 0)
+        xlim = kwargs.get('xlim', 310)
+        ylim = kwargs.get('ylim', 310)
         if "title" in kwargs.keys():
             ax.set_title("%s" % (kwargs.pop('title')), fontsize=23)
         if "xlabel" in kwargs.keys():
             ax.set_xlabel("%s" % (kwargs.pop('xlabel')), fontsize=15)
         if "ylabel" in kwargs.keys():
             ax.set_ylabel("%s" % (kwargs.pop('ylabel')), fontsize=15)
-        if "xlim" in kwargs.keys():
-            xlim = kwargs.pop('xlim')
-        if "ylim" in kwargs.keys():
-            ylim = kwargs.pop('ylim')
         if "label" in kwargs.keys():
             label = (kwargs.pop('label'))
             # print(label)
+        marker = ['-.', '--', ':']
         if "circle" in kwargs.keys():
             if kwargs.pop('circle'):
                 for i, arg in enumerate(args):
@@ -32,16 +31,17 @@ class Plot:
                 for i in range(len(self.Rx)):
                     ax.add_patch(plt.Circle((self.Rx[i], self.Ry[i]), Error[i], color='r'))
                 ax.add_patch(plt.Circle((self.Rx[0], self.Ry[0]), Error[0], color='r', label=u'%s' % lab))
-            else:
-                for i, arg in enumerate(args):
-                    if i % 2 == 0:
-                        xlist.append(arg)
-                    else:
-                        ylist.append(arg)
-            for x, y, lab in zip(xlist, ylist, label):
-                ax.plot(x, y, label=u'%s' % lab)
-        plt.xlim(0, xlim)
-        plt.ylim(0, ylim)
+        else:
+            for i, arg in enumerate(args):
+                if i % 2 == 0:
+                    xlist.append(arg)
+                else:
+                    ylist.append(arg)
+        for x, y, lab, m in zip(xlist, ylist, label, marker):
+            ax.plot(x, y, label='{}'.format(lab)) # '{}'.format(m), label='{}'.format(lab))
+        plt.xlim(xmin, xlim)
+        plt.xlim(xmin, xlim)
+        plt.ylim(ymin, ylim)
         ax.grid(True)
         ax.legend(loc=1, prop={'size': 15})
         plt.show()
@@ -235,36 +235,22 @@ class Mistakes(Plot):
         return ErrorRadius
 
 
-class Kalman(Mistakes):
-    """
-
-    для построения изолиний на поле ошибок
-
-    def show_shape(self, ErrorRadius):
-        ErrorRadiusSort = ErrorRadius.argsort()
-
-        return [ErrorRadiusSort[i:i + int(len(ErrorRadiusSort) / 7)] for i in
-                range(0, len(ErrorRadiusSort), int(len(ErrorRadiusSort) / 7))]
-    """
-
+class Kalman(Mistakes, Plot):
     def function(self, ErrorRadius):
         Traektoria, R = self.noize(ErrorRadius)
         self.schedule(Traektoria[0], Traektoria[1], R[0], R[1],
-                      circle=False,
                       title="Координаты ЛА до обработки фильтром Калмана",
                       label=['зашумленная траектория', 'истинная траектория'],
                       xlabel='km',
                       ylabel='km')
         Kalmancoordinates = self.Kalmanfilter(Traektoria[0], Traektoria[1], ErrorRadius)
-        self.schedule(Kalmancoordinates[0], Kalmancoordinates[1], Traektoria[0], Traektoria[1],
-                      circle=False,
+        self.schedule(Kalmancoordinates[0], Kalmancoordinates[1], Traektoria[0], Traektoria[1], self.Rx, self.Ry,
                       title="Координаты ЛА после обработки фильтром Калмана",
-                      label=['отфильтрованная траектория', 'зашумленная траектория'],
+                      label=['отфильтрованная траектория', 'зашумленная траектория', 'истинная траектория'],
                       xlabel='km',
                       ylabel='km')
         dev, devkalman = self.standard_deviation(self.Rx, ErrorRadius)
         self.schedule(dev[0], dev[1], devkalman[0], devkalman[1],
-                      circle=False,
                       title='СКО для выборки из 200 траекторий',
                       label=['СКО до обработки', 'СКО после обработки'],
                       xlabel='Порядковый номер измерения координаты',
@@ -309,11 +295,11 @@ class Kalman(Mistakes):
             " X component"
             xk[i] = xk[i - 1] + uk_x[i - 1] * 1 + alfa[i] \
                     * (traekx[i] - (xk[i - 1] + uk_x[i - 1] * t))
-            uk_x[i] = beta[i] / t * (traekx[i] - (xk[i - 1] + uk_x[i - 1] * t))
+            uk_x[i] = beta[i] / t * (traekx[i] - (xk[i - 1] + uk_x[i - 1] * t))  # uk_x[i - 1] +
             "Y component"
             yk[i] = yk[i - 1] + uk_y[i - 1] * 1 + alfa[i] \
                     * (traeky[i] - (yk[i - 1] + uk_y[i - 1] * t))
-            uk_y[i] = beta[i] / t * (traeky[i] - (yk[i - 1] + uk_y[i - 1] * t))
+            uk_y[i] = beta[i] / t * (traeky[i] - (yk[i - 1] + uk_y[i - 1] * t))  # uk_y[i - 1] +
         return xk, yk
 
     def standard_deviation(self, Rx, ErrorRadius):
@@ -330,10 +316,16 @@ class Kalman(Mistakes):
         stdykalmsum = []
         xkalmsum = []
         ykalmsum = []
+        meanx = []
+        meany = []
 
+        #print(numiterx[100])
         for i in range(len(numiterx)):
+            meanx.append(sum(numiterx[i]) / len(numiterx[i]))
+            meany.append(sum(numitery[i]) / len(numitery[i]))
             stdx = np.append(stdx, np.std(numiterx[i]))
             stdy = np.append(stdy, np.std(numitery[i]))
+
 
         for i in range(200):
             xkalm, ykalm = self.Kalmanfilter(traektorx[i], traektory[i], ErrorRadius)
@@ -343,7 +335,11 @@ class Kalman(Mistakes):
         numxkalmsum = [[xkalmsum[q][i] for q in range(200)] for i in range(len(Rx))]
         numykalmsum = [[ykalmsum[q][i] for q in range(200)] for i in range(len(Rx))]
 
+        meankalmanx = []
+        meankalmany = []
         for i in range(len(numiterx)):
+            meankalmanx.append(sum(numxkalmsum[i]) / len(numxkalmsum[i]))
+            meankalmany.append(sum(numykalmsum[i]) / len(numykalmsum[i]))
             stdxkalmsum = np.append(stdxkalmsum, np.std(numxkalmsum[i]))
             stdykalmsum = np.append(stdykalmsum, np.std(numykalmsum[i]))
 
@@ -351,6 +347,7 @@ class Kalman(Mistakes):
         stdxy = []
         stdxykalmsum = []
         for i in range(len(stdx)):
-            stdxy.append(np.sqrt(stdx[i] ** 2 + stdy[i] ** 2))
-            stdxykalmsum.append(np.sqrt(stdxkalmsum[i] ** 2 + stdykalmsum[i] ** 2))
+            stdxy.append(np.sqrt((meanx[i] + meany[i]) ** 2 + (stdx[i] + stdy[i]) ** 2))
+            stdxykalmsum.append(np.sqrt((meankalmanx[i] + meankalmany[i]) ** 2 + ( stdxkalmsum[i] + stdykalmsum[i]) ** 2))
+        print('SKO', (sum(stdxykalmsum) / sum(stdxy))*100)
         return [range(len(stdxy)), stdxy], [range(len(stdxykalmsum)), stdxykalmsum]
